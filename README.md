@@ -89,7 +89,7 @@
    ```
 4. 跟踪子进程
 
-   * 需要跟踪所有 trace 进程下的子进程，在 Kernel/proc.c 中的 fork() 代码中，添加子进程的 mask:np->mask = p->mask;
+   * 需要跟踪所有 trace 进程下的子进程，在 Kernel/proc.c 中的 fork() 代码中，添加子进程的 `mask:np->mask = p->mask;`
 5. 打印信息
 
    * 由之前关于系统调用的相关分析知道，所有的系统调用进入内核后都需要经过 syscall() 函数来执行，因此在该函数内添加判断。
