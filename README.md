@@ -9,6 +9,46 @@
 
 ![1720511970342](images/README/1720511970342.png)
 
+在shell中命令的执行原理：
+
+1.从用户输入中获取命令和参数，以`strace grep hello README`为例。
+
+2.`strace`命令的解析与执行
+
+* **解析命令行**:
+  * Shell 接收到命令行输入 `strace grep hello README`。
+  * Shell 将命令行分解成单独的命令和参数：`strace` 是命令，`grep hello README` 是参数。
+* **查找命令路径**:
+  * Shell 会在其环境变量 `$PATH` 中查找 `strace`
+* **创建子进程**:
+  * Shell 使用 `fork()` 系统调用创建一个子进程。
+  * 在子进程中，Shell 调用 `exec()` 系统调用来执行 `strace` 命令，并将 `grep hello README` 作为参数传递给 `strace`。
+
+3.`strace` 执行步骤
+
+* **启动 `strace`**:
+  * 在子进程中，`exec()` 替换当前进程的镜像为 `strace` 的镜像。
+  * `strace` 开始执行，并解析其参数（即 `grep hello README`）。
+* **启动和追踪 `grep`**:
+  * `strace` 使用 `ptrace` 系统调用来启动并追踪 `grep hello README` 命令。
+  * `strace` 再次调用 `fork()` 创建另一个子进程，这次用于运行 `grep`。
+  * 在新子进程中，`exec()` 系统调用被用于替换当前进程的镜像为 `grep` 的镜像，执行 `grep hello README` 命令。
+
+3.`grep` 执行步骤
+
+* **启动 `grep`**:
+  * 新子进程运行 `grep`，并解析其参数（`hello` 和 `README`）。
+* **打开文件**:
+  * `grep` 使用 `open()` 系统调用打开文件 `README`。
+* **读取文件内容**:
+  * `grep` 使用 `read()` 系统调用读取文件内容，并在内容中搜索匹配 `hello` 的行。
+* **输出结果**:
+  * 找到匹配行后，`grep` 将结果输出到标准输出（通常是终端）。
+* **关闭文件**:
+  * 搜索完成后，`grep` 使用 `close()` 系统调用关闭文件。
+
+总结：首先创建一个子进程用于执行 btrace 进程，解析出 btrace 的参数为 `grep hello README`。在 btrace 进程中，执行系统调用后再创建一个子进程用于运行 `grep`命令解析出参数为`hello README`。在最后一个进程的执行过程中，打印出系统调用相关的信息。
+
 # 任务一、实现System call tracing
 
 创建一个新的 `trace`系统调用来控制跟踪。它应该有一个参数，这个参数是一个整数“掩码”（mask），它的比特位指定要跟踪的系统调用。例如，要跟踪 `fork`系统调用，程序调用 `trace(1 << SYS_fork)`，其中 `SYS_fork`是***kernel/syscall.h***中的系统调用编号。如果在掩码中设置了系统调用的编号，则必须修改xv6内核，以便在每个系统调用即将返回时打印出一行。该行应该包含进程id、系统调用的名称和返回值；
@@ -40,11 +80,11 @@
    ```
    uint64 sys_trace(void)
    {
-   int mask;
-   if(argint(0, &mask) < 0) //从用户空间获取掩码 mask
-   return -1;
-   myproc()->mask = mask;//标记进程
-   return 0;
+     int mask;
+       if(argint(0, &mask) < 0) //从用户空间获取掩码 mask
+         return -1;
+       myproc()->mask = mask;//标记进程
+       return 0;
    }
    ```
 4. 跟踪子进程
