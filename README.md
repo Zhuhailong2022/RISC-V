@@ -116,6 +116,11 @@ main(int argc, char *argv[])
 }
 ```
 
+实验结果：
+
+![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/2290694d-d2c9-4700-8c38-20bcc6758c9d)
+
+
 # 任务三（primes）
 
 这里需要使用 fork 子进程和进程间通信的技术实现 2\~35 以内质数的筛选。
@@ -204,6 +209,10 @@ int main(int argc, char const *argv[])
   exit(0);
 }
 ```
+实验结果：
+
+![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/11e22721-d23f-438a-b244-df1671d8657c)
+
 
 # 任务四（find）
 
@@ -378,6 +387,11 @@ main(int argc, char *argv[])
 
 ```
 
+实验结果：
+
+![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/b33ce1fd-286c-43a8-ae18-db4911b3ff31)
+
+
 # 任务五（xargs）
 
 xargs(extensive arguments)是Linux系统中的一个很重要的命令，它一般==通过管道来和其他命令一起调用==，来将额外的参数传递给命令，这个小问题就是实现自己版本的xargs命令。
@@ -503,3 +517,8 @@ main(int argc, char *argv[])
 
 
 ```
+
+实验结果：
+
+![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/fbf63878-ac6f-498b-92fb-8cea363599a2)
+
