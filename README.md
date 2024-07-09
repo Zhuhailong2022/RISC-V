@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
 所以在写完 .c 代码后，需要在 Makefile 文件中的 UPROGS 字段中添加 $U/_[xxx]\，然后才能使用 ./grade-lab-util 进行测试。
 
 实验结果：
+
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/37e09ed5-70fb-4d39-97a1-cfe6610db48c)
 
 
