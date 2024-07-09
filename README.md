@@ -394,7 +394,7 @@ main(int argc, char *argv[])
 
 # 任务五（xargs）
 
-xargs(extensive arguments)是Linux系统中的一个很重要的命令，它一般==通过管道来和其他命令一起调用==，来将额外的参数传递给命令，这个小问题就是实现自己版本的xargs命令。
+xargs(extensive arguments)是Linux系统中的一个很重要的命令，它一般通过管道来和其他命令一起调用，来将额外的参数传递给命令，这个小问题就是实现自己版本的xargs命令。
 
 ```bash
 $ echo hello too | xargs echo bye
