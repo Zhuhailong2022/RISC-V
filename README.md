@@ -80,10 +80,7 @@
 
 # 任务二、Sysinfo
 
-```
 这个任务是实现一个系统调用统计一些系统信息，包括：空闲内存的数量和不处于 UNUSED 状态的进程数量。和trace一样的，这里提供了一个用户态下的应用程序user/sysinfotest.c用来检测我们编写的系统调用的正确性。
-```
-
 
 struct sysinfo是一个结构体，定义在 kernel/sysinfo.h中：
 
