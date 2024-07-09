@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -106,3 +107,23 @@ sys_trace(void)
   myproc()->mask = mask;
   return 0;
 }
+
+uint64
+sys_sysinfo(void)
+{
+  uint64 UserSysinfo;
+  struct sysinfo KernelSysinfo;
+  if(argaddr(0, &UserSysinfo) < 0)
+    return -1;
+  KernelSysinfo.freemem = kcountFreeMemory();    // 统计空闲内存的量
+  KernelSysinfo.nproc = countProc();             // 统计状态不是UNUSED的进程数量
+
+  /* 将sysinfo结构体拷贝回用户态下 */
+  struct proc *p = myproc(); 
+  if(copyout(p->pagetable, UserSysinfo, (char*)&KernelSysinfo, sizeof(struct sysinfo)) < 0)
+    return -1;
+  return 0;
+}
+
+
+

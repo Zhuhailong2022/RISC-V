@@ -77,3 +77,113 @@
 实验结果：
 
 ![1720515958049](images/README/1720515958049.png)
+
+# 任务二、Sysinfo
+
+```
+这个任务是实现一个系统调用统计一些系统信息，包括：空闲内存的数量和不处于 UNUSED 状态的进程数量。和trace一样的，这里提供了一个用户态下的应用程序user/sysinfotest.c用来检测我们编写的系统调用的正确性。
+```
+
+
+struct sysinfo是一个结构体，定义在 kernel/sysinfo.h中：
+
+```c
+// sysinfo结构体中定义了空闲内存和不处于UNUSED态进程的数量
+struct sysinfo {
+  uint64 freemem;   // amount of free memory (bytes)
+  uint64 nproc;     // number of process
+};
+
+```
+
+可以看到，结构体中包含空闲内存大小和进程数量两个参数。因此我们需要先了解操作系统空闲内存管理逻辑和操作系统进程管理逻辑。
+
+1.首先查看内存管理需要的两个数据结构，run 和 kmem。
+
+```c
+// 一个链表，这个链表每个结点都指向了一个空闲内存块的开头地址
+struct run {
+  struct run *next;
+};
+
+// 一把自旋锁，防止并发时的访问冲突
+// 空闲内存块组成的列表
+struct {
+  struct spinlock lock;
+  struct run *freelist;
+} kmem;
+```
+
+可以看出，xv6操作系统就是将空闲内存串联成**一个链表**，如下图所示：
+
+![1720530422165](images/README/1720530422165.png)
+
+明白了物理内存管理方式，就可以着手于空闲内存大小的统计了，基本思路是遍历 freelist 链表直到链表尾部，代码实现如下：
+
+```c
+uint64
+kcountFreeMemory()
+{
+  struct run* r;
+  uint64 FreeMemory = 0;//统计空闲内存大小
+  acquire(&kmem.lock);//获取锁
+  for(r = kmem.freelist ; r ; r = r->next)//遍历链表
+    FreeMemory += PGSIZE;
+  release(&kmem.lock);//释放锁
+
+  return FreeMemory;
+}
+```
+
+2.查看xv6系统进程管理模块
+
+在 kernel/proc.c 文件中，关于如何遍历当前进程列表的实现如下：
+
+```c
+for(p = proc; p < &proc[NPROC]; p++) {
+	...
+}
+```
+
+这里的 proc[NPROC] 是xv6 操作系统的进程组，通过遍历这个数组即可完成所有进程的遍历。基于此，我们可以实现进程数量的统计函数：
+
+```c
+uint64
+countProc()
+{
+  struct proc* p;
+  uint64 NumberOfProcess = 0;
+  for(p = proc ; p < &proc[NPROC] ; p++){//遍历进程列表
+    acquire(&p->lock);
+    if(p->state != UNUSED)//找到使用中的进程
+      NumberOfProcess++;//计数
+    release(&p->lock);
+  }
+  return NumberOfProcess;
+}
+```
+
+3.最后，内核中 sysinfo 系统调用的实现：
+
+```c
+uint64
+sys_sysinfo(void)
+{
+  uint64 UserSysinfo;//用户空间传入的地址
+  struct sysinfo KernelSysinfo;//传出参数
+  if(argaddr(0, &UserSysinfo) < 0)
+    return -1;
+  KernelSysinfo.freemem = kcountFreeMemory();    // 统计空闲内存的量
+  KernelSysinfo.nproc = countProc();             // 统计状态不是UNUSED的进程数量
+
+  /* 使用copyout函数将sysinfo结构体拷贝回用户态下 */
+  struct proc *p = myproc(); 
+  if(copyout(p->pagetable, UserSysinfo, (char*)&KernelSysinfo, sizeof(struct sysinfo)) < 0)
+    return -1;
+  return 0;
+}
+```
+
+实验结果：
+
+![1720531315792](images/README/1720531315792.png)

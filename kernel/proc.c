@@ -693,3 +693,17 @@ procdump(void)
     printf("\n");
   }
 }
+// Return the number of processes in the process table.返回正在使用的进程数量
+uint64
+countProc()
+{
+  struct proc* p;
+  uint64 NumberOfProcess = 0;
+  for(p = proc ; p < &proc[NPROC] ; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      NumberOfProcess++;
+    release(&p->lock);
+  }
+  return NumberOfProcess;
+}
