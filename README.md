@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
 /pingpong.c
 
-```
+```c
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
@@ -443,33 +443,58 @@ int
 main(int argc, char *argv[])
 {
     int pid, status;
+    // 检查命令行参数个数是否足够
     if (argc < 2) {
         fprintf(2, "Usage: xargs command ...\n");
         exit(1);
     }
+
+    // 获取要执行的命令
     char *command = argv[1];
+
+    // 初始化参数个数
     arg_num_init = argc - 1;
+
+    // 复制命令行参数到 args 数组
     args[0] = command;
     for (int i = 1; i < argc; i++) {
         args[i] = argv[i + 1];
     }
+
     int flag = 1;
+    // 循环等待用户输入
     while (flag) {
+        // 读取用户输入
         flag = readline(STDIN);
+
+        // 设置参数列表的结束符
         args[argnum] = 0;
+
+        // 如果用户没有输入并且参数列表已经处理完毕，则退出程序
         if (flag == 0 && argnum == arg_num_init) {
             exit(0);
         }
+
+        // 创建子进程
         pid = fork();
+
+        // 子进程执行
         if (pid == 0) {
+            // 执行命令
             exec(command, args);
+
+            // 如果执行失败，则打印错误信息并退出
             printf("exec failed!\n");
             exit(1);
         } else {
+            // 父进程等待子进程结束
             wait(&status);
         }
     }
+
+    // 程序正常退出
     exit(0);
 }
+
 
 ```
