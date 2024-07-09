@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
 
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/37e09ed5-70fb-4d39-97a1-cfe6610db48c)
 
-
 # 任务二（pingpong）
 
 使用 pipe() 和 fork() 实现父进程发送一个字符，子进程成功接收该字符后打印 received ping，再向父进程发送一个字符，父进程成功接收后打印 received pong。
@@ -119,7 +118,6 @@ main(int argc, char *argv[])
 实验结果：
 
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/2290694d-d2c9-4700-8c38-20bcc6758c9d)
-
 
 # 任务三（primes）
 
@@ -209,10 +207,10 @@ int main(int argc, char const *argv[])
   exit(0);
 }
 ```
+
 实验结果：
 
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/11e22721-d23f-438a-b244-df1671d8657c)
-
 
 # 任务四（find）
 
@@ -391,10 +389,9 @@ main(int argc, char *argv[])
 
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/b33ce1fd-286c-43a8-ae18-db4911b3ff31)
 
-
 # 任务五（xargs）
 
-xargs(extensive arguments)是Linux系统中的一个很重要的命令，它一般==通过管道来和其他命令一起调用==，来将额外的参数传递给命令，这个小问题就是实现自己版本的xargs命令。
+xargs(extensive arguments)是Linux系统中的一个很重要的命令，它一般通过管道来和其他命令一起调用，来将额外的参数传递给命令，这个小问题就是实现自己版本的xargs命令。
 
 ```bash
 $ echo hello too | xargs echo bye
@@ -521,4 +518,3 @@ main(int argc, char *argv[])
 实验结果：
 
 ![image](https://github.com/Zhuhailong2022/RISC-V/assets/115600879/fbf63878-ac6f-498b-92fb-8cea363599a2)
-
