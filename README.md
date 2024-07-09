@@ -32,9 +32,7 @@ int main(int argc, char *argv[])
 
 # 任务二（pingpong）
 
-```
 使用 pipe() 和 fork() 实现父进程发送一个字符，子进程成功接收该字符后打印 received ping，再向父进程发送一个字符，父进程成功接收后打印 received pong。
-```
 
 1. 文件描述符 FD
    这里需要懂得什么是文件描述符。在 Linux 操作系统中，一切皆文件，内核通过文件描述符访问文件。每个进程都会默认打开3个文件描述符,即0、1、2。其中0代表标准输入流（stdin）、1代表标准输出流（stdout）、2代表标准错误流（stderr）。可以使用 > 或 >> 的方式重定向。
@@ -48,7 +46,7 @@ int main(int argc, char *argv[])
 
 /pingpong.c
 
-```c
+```
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
@@ -131,7 +129,7 @@ main(int argc, char *argv[])
 1. 在user目录下添加primes.c
 2. 在Makefile的 UPROGS 字段添加相应字段。
 
-```c
+```cpp
 #include "kernel/types.h"
 #include "user/user.h"
 
