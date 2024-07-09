@@ -9,7 +9,7 @@
 
 /sleep.c
 
-```
+```c
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
 /pingpong.c
 
-```
+```c
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
@@ -131,7 +131,7 @@ main(int argc, char *argv[])
 1. 在user目录下添加primes.c
 2. 在Makefile的 UPROGS 字段添加相应字段。
 
-```cpp
+```c
 #include "kernel/types.h"
 #include "user/user.h"
 
