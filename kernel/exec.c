@@ -20,6 +20,9 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
+  if(p->pid == 1){
+    vmprint(p->pagetable);
+  }
 
   begin_op();
 

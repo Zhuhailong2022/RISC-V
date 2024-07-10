@@ -440,3 +440,30 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+void _vmprint(pagetable_t pagetable, int level) {
+  for(int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V)
+    {
+	  for (int j = 0; j < level; ++j) {
+        if (j == 0) printf("..");
+        else printf(" ..");
+      }
+      uint64 child = PTE2PA(pte); // 通过pte映射下一级页表的物理地址
+      //打印pte的编号、pte地址、pte对应的物理地址(下一级页表的物理地址)
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+      // 查看是否到了最后一级，如果没有则继续递归调用当前函数。
+      if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
+      {
+        _vmprint((pagetable_t)child, level+1);
+      }    
+    }
+  }
+}
+
+void vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  _vmprint(pagetable, 1);
+}
