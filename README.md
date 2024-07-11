@@ -14,7 +14,7 @@ Xv6应用程序使用`sbrk()`系统调用向内核请求堆内存。在我们给
 
 以下是对 sys_sbrk() 的修改：
 
-```
+```c
 uint64
 sys_sbrk(void)
 {
@@ -41,7 +41,7 @@ sys_sbrk(void)
 
 **1.实现 xv6 操作系统的懒分配。在上一个任务中，实现了为程序分配“假”内存。如果程序访问到这些假内存会发生什么呢？答案是会触发中断处理程序 **`usertrap()`。在前一个实验中知道了`usertrap()`根据中断码判断中断原因然后跳入对应的中断处理程序，这里的中断原因是缺少内存映射。查询 xv6 系统手册知道 page fault 的中断码是 13 和 15，因此在 `usertrap()`中对 `r_scause()` 中断原因进行判断，如果是13 或 15 ，则说明没有找到虚拟地址对应的物理地址，此时虚拟地址存储在 **STVAL** 寄存器中，取出该地址进行分配。如果**申请物理地址没成功或者虚拟地址超出范围了，那么杀掉进程**，完整的 `usertrap()` 代码如下：
 
-```
+```c
 void
 usertrap(void)
 {
@@ -112,7 +112,7 @@ usertrap(void)
 
 **父进程创建子进程时还需要用到**`fork()`函数，因此还要处理**kernel/proc.c**的`fork()`函数中父进程向子进程拷贝时的Lazy allocation 情况：
 
-```
+```c
 int
 fork(void)
 {
@@ -161,7 +161,7 @@ fork(void)
 
 **可以看出**`fork()`是通过`uvmcopy()`将父进程页表向子进程拷贝的。对于`uvmcopy()`的处理和 `uvmunmap()`一致，只需要将PTE不存在和无效的两种情况由引发panic改为continue跳过即可，以下是对`uvmcopy()`函数的修改：
 
-```
+```c
 if((pte = walk(old, i, 0)) == 0)
   //panic("uvmcopy: pte should exist");  //注释掉原来这行
   continue; //添加
@@ -172,7 +172,7 @@ if((*pte & PTE_V) == 0)
 
 **2.以上修改了内存分配函数，使得进程申请内存时申请到的是仅仅是虚拟内存而非真实物理内存。倘若进程在整个生命周期都没有使用申请到的虚拟内存就结束了，调用原本的进程内存释放函数时就会出现错误。因此，这里对内存释放函数进行相应的处理：**
 
-```
+```c
 void
 uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
@@ -201,3 +201,5 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 ```
 
 ## 实现结果
+
+![1720704320146](images/README/1720704320146.png)
