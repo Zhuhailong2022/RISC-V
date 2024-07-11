@@ -112,7 +112,9 @@ found:
     release(&p->lock);
     return 0;
   }
-
+  p->interval = 0;  //添加
+  p->handler = 0;	  //添加
+  p->ticks = 0;     //添加
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -150,6 +152,9 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->interval = 0;  //添加
+  p->handler = 0;	  //添加
+  p->ticks = 0;     //添加
 }
 
 // Create a user page table for a given process,

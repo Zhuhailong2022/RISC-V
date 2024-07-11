@@ -319,6 +319,15 @@ sfence_vma()
   asm volatile("sfence.vma zero, zero");
 }
 
+//用于获取当前程序栈帧指针 fp 的值，该值存放在 s0 寄存器中
+static inline uint64
+r_fp()
+{
+  uint64 x;
+  asm volatile("mv %0, s0" : "=r"(x));
+  return x;
+}
+
 
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page

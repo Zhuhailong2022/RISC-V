@@ -70,6 +70,7 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  backtrace();
   return 0;
 }
 
@@ -95,3 +96,34 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 sys_sigreturn(void) {
+    struct proc* p = myproc();
+    // trapframecopy must have the copy of trapframe
+    if(p->trapframecopy != p->trapframe + 512) {
+        return -1;
+    }
+    memmove(p->trapframe, p->trapframecopy, sizeof(struct trapframe));   // restore the trapframe
+    p->ticks = 0;     // prevent re-entrant
+    p->trapframecopy = 0;    // 置零
+    return 0;
+}
+
+uint64 sys_sigalarm(void)
+{
+  int interval;
+  uint64 handler;
+  struct proc * p;
+  // sigalarm的第一个参数为ticks，第二个参数为void(*handler)()
+  if(argint(0, &interval) < 0 || argaddr(1, &handler) < 0 || interval < 0) {
+    return -1;
+  }
+  p = myproc();
+  p->interval = interval;
+  p->handler = handler;
+  p->ticks = 0;
+  return 0;
+}
+
+
+
