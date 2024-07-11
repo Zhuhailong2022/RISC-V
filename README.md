@@ -23,7 +23,7 @@
 
 **内核为每个进程分配了一段栈帧内存页，用于存放栈。函数调用就是在该位置处进行的。需要清楚的是：****fp为当前函数的栈顶指针，sp为栈指针。fp-8 存放返回地址，fp-16 存放原栈帧**（调用函数的fp）。因此，我们可以通过当前函数的栈顶指针 fp 来找到调用该函数的函数栈帧，然后递归地进行下去。直到到达当前页的开始地址。
 
-![1720690200571](images/README/1720690200571.png)![image-20240711160532832](file:///C:/Users/Admin/AppData/Roaming/Typora/typora-user-images/image-20240711160532832.png?lastModify=1720690128)
+![1720690200571](images/README/1720690200571.png)!
 
 ### 实现思路
 
@@ -31,7 +31,7 @@
 
 **2.**`backtrace()` ，要想打印栈帧首先要获取栈帧指针 fp，这个指针一般保存在寄存器中，可以参考 `ricv.h`文件中相关代码。如获取机器模式的循环计数器函数：
 
-```
+```c
 // machine-mode cycle counter
 static inline uint64
 r_time()
@@ -44,7 +44,7 @@ r_time()
 
 **模仿它实现：**
 
-```
+```c
 // read the current frame pointer
 static inline uint64
 r_fp()
@@ -57,7 +57,7 @@ r_fp()
 
 **3.在**`printf.c`中实现 `backtrace()` 函数
 
-```
+```c
 void backtrace(void) {
   uint64 fp = r_fp(), top = PGROUNDUP(fp);// 获取当前帧指针的值，将帧指针向上舍入到页面边界，这是为了确定栈的边界
   printf("backtrace:\n");打印调用栈的标题信息
@@ -83,14 +83,14 @@ void backtrace(void) {
 
 **1.需要实现的函数首先会在用户态下执行，所以需要在用户态头文件****user/user.h**中进行函数声明：
 
-```
+```c
 int sigalarm(int ticks, void (*handler)());
 int sigreturn(void);
 ```
 
 **2.前面的实验中介绍到，进行系统调用时，用户态程序需要对应的跳板函数才能进入内核态，因此在****user/usys.pl**添加相应的跳板函数入口：
 
-```
+```perl
 entry("sigalarm");
 entry("sigreturn");
 ```
@@ -99,14 +99,14 @@ entry("sigreturn");
 
 **更新****kernel/syscall.h**
 
-```
+```c
 #define SYS_sigalarm 22 
 #define SYS_sigreturn 23
 ```
 
 **更新kernel/syscall.c。**
 
-```
+```c
 extern uint64 sys_sigalarm(void); //添加
 extern uint64 sys_sigreturn(void);//添加
 
@@ -119,7 +119,7 @@ static uint64 (*syscalls[])(void) = {
 
 **4.将****警报间隔**和指向**警报处理函数**的指针存储在`proc`结构（进程控制块）中。中断发生后中断处理程序最终会通过该指针调用用户在用户态设置的回调函数；定义一个跟踪自上次调用警报处理程序以来已经过去了多少滴答的成员变量**ticks**。
 
-```
+```c
 struct proc {
   //... ...     
   int interval;              // alarm interval time
@@ -130,7 +130,7 @@ struct proc {
 
 **5.在进程控制块中增加以上字段后，需要在进程创建函数**`allocproc()`中初始化`proc`字段。
 
-```
+```c
 //......
 p->context.sp = p->kstack + PGSIZE;
 p->interval = 0;  //添加
@@ -148,7 +148,7 @@ return 0;
 
 **在 usertrap() 函数中进行以下修改：**
 
-```
+```c
 //......
 // give up the CPU if this is a timer interrupt.
 if(which_dev == 2){//发生了时钟中断
@@ -169,7 +169,7 @@ if(which_dev == 2){//发生了时钟中断
 
 **7.最后实现对应的系统调用，用户在用户态调用**`sigalarm`，跳转到内核执行`sys_sigalarm`。执行完毕之后，进程控制块中 interval、ticks、handler等被设置成用户输入的值。此后当一定时间过后ticks==interval，执行用户设置的回调函数。
 
-```
+```c
 uint64 sys_sigalarm(void)
 {
   int interval;
@@ -207,7 +207,7 @@ uint64 sys_sigalarm(void)
 
 **2.按照实现思路，在proc结构体中添加一个指向trapframe副本的指针。**
 
-```
+```c
 struct proc {
     int interval;              // alarm interval time
     uint64 handler;            // alarm handle function
@@ -218,7 +218,7 @@ struct proc {
 
 **3.在****kernel/trap.c**的`usertrap`中覆盖`p->trapframe->epc`**前**将trapframe的副本进行保存。同时，将之前调用`handler`后执行的`ticks = 0`删除，以实现防止`handler`重入。
 
-```
+```c
 // give up the CPU if this is a timer interrupt.
 if(which_dev == 2){
   if(p->interval)
@@ -235,7 +235,7 @@ if(which_dev == 2){
 
 **4.在**`sys_sigreturn`中将`trapframecopy`拷贝到原`trapframe`中。恢复后将`trapframecopy`置零，表示当前没有副本。同时在拷贝`trapframecopy`前做了一个地址判断，是为了防止用户程序未调用`sigalarm`便使用了该系统调用。此时没有`trapframecopy`是无效的，可以避免错误拷贝。
 
-```
+```c
 uint64 sys_sigreturn(void) {
     struct proc* p = myproc();
     // trapframecopy must have the copy of trapframe
