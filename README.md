@@ -69,7 +69,7 @@ void backtrace(void) {
 
 ### 实现结果
 
-![1720690211514](images/README/1720690211514.png)!
+![1720690211514](images/README/1720690211514.png)
 
 # 任务二、Alarm
 
