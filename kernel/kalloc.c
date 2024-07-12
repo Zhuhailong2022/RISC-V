@@ -23,10 +23,26 @@ struct {
   struct run *freelist;
 } kmem;
 
+//内存引用计数结构
+struct pagerefcnt {
+  struct spinlock lock;
+  uint8 refcount[PHYSTOP / PGSIZE];
+} ref;
+
+//增加页表 va 的引用计数
+void incref(uint64 va) {
+  acquire(&ref.lock);
+  if(va < 0 || va > PHYSTOP) panic("wrong virtual address");
+  ref.refcount[va / PGSIZE]++;
+  release(&ref.lock);
+}
+
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&ref.lock, "ref"); //初始化自旋锁
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -36,7 +52,10 @@ freerange(void *pa_start, void *pa_end)
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-    kfree(p);
+    {
+      ref.refcount[(uint64)p / PGSIZE] = 1; //这里设置为1再kfree就变成0了
+      kfree(p);
+    }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -52,6 +71,13 @@ kfree(void *pa)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
+  //释放内存时，引用计数大于0时只减少引用计数而不释放内存
+  acquire(&ref.lock);
+  if(--ref.refcount[(uint64)pa / PGSIZE] > 0) {
+    release(&ref.lock);
+    return;
+  }
+  release(&ref.lock);
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
@@ -73,7 +99,14 @@ kalloc(void)
   acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
-    kmem.freelist = r->next;
+    {
+      kmem.freelist = r->next;//分配页面时将其引用计数初始化为1
+      //添加
+      acquire(&ref.lock);
+      ref.refcount[(uint64)r / PGSIZE] = 1; 
+      release(&ref.lock);
+      //结束
+    }
   release(&kmem.lock);
 
   if(r)

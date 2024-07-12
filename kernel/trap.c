@@ -67,7 +67,28 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  //添加page fault时的处理代码
+  }else if(r_scause() == 15) {
+      uint64 va = r_stval(); //获取虚拟地址
+      pte_t *pte = walk(p->pagetable, va, 0); //获取PTE
+      if (!(PTE_FLAGS(*pte) & PTE_COW)) {
+         p->killed = 1;
+      }  else {
+         va = PGROUNDDOWN(va); //虚拟地址向下取整
+         uint64 ka = (uint64)kalloc(); //分配内存
+         if(ka == 0) {
+           p->killed = 1;
+         } else {
+           uint64 flags = PTE_FLAGS(*pte);
+           flags = flags & ~PTE_COW; //标记为非COW页面
+           uint64 pa = walkaddr(p->pagetable, va); //物理地址
+           memmove((void*)ka, (void *)pa, PGSIZE); //内存复制
+           uvmunmap(p->pagetable, va, 1, 1);
+           mappages(p->pagetable, va, 1, ka, flags | PTE_W); //进行映射，权限设置为可写
+         }
+      } 
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
