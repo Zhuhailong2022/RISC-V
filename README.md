@@ -39,7 +39,9 @@ sys_sbrk(void)
 
 ## 任务二、Lazy allocation
 
-**1.实现 xv6 操作系统的懒分配。在上一个任务中，实现了为程序分配“假”内存。如果程序访问到这些假内存会发生什么呢？答案是会触发中断处理程序 **`usertrap()`。在前一个实验中知道了`usertrap()`根据中断码判断中断原因然后跳入对应的中断处理程序，这里的中断原因是缺少内存映射。查询 xv6 系统手册知道 page fault 的中断码是 13 和 15，因此在 `usertrap()`中对 `r_scause()` 中断原因进行判断，如果是13 或 15 ，则说明没有找到虚拟地址对应的物理地址，此时虚拟地址存储在 **STVAL** 寄存器中，取出该地址进行分配。如果**申请物理地址没成功或者虚拟地址超出范围了，那么杀掉进程**，完整的 `usertrap()` 代码如下：
+**1.实现 xv6 操作系统的懒分配。在上一个任务中，实现了为程序分配“假”内存。如果程序访问到这些假内存会发生什么呢？答案是会触发中断处理程序 **`usertrap()`。在前一个实验中知道了`usertrap()`根据中断码判断中断原因然后跳入对应的中断处理程序，这里的中断原因是缺少内存映射。
+
+**查询 xv6 系统手册知道 page fault 的中断码是 13 和 15，因此在 **`usertrap()`中对 `r_scause()` 中断原因进行判断，如果是13 或 15 ，则说明没有找到虚拟地址对应的物理地址，此时虚拟地址存储在 **STVAL** 寄存器中，取出该地址进行分配。如果**申请物理地址没成功或者虚拟地址超出范围了，那么杀掉进程**，完整的 `usertrap()` 代码如下：
 
 ```c
 void
@@ -87,7 +89,7 @@ usertrap(void)
     } else {
       va = PGROUNDDOWN(va);
       memset((void*)pa, 0, PGSIZE);
-      if (mappages(p->pagetable, va, PGSIZE, pa, PTE_W | PTE_U | PTE_R) != 0) {
+      if (mappages(p->pagetable, va, PGSIZE, pa, PTE_W | PTE_U | PTE_R) != 0) {//映射物理地址到虚拟地址并添加标识
         kfree((void*)pa);
         p->killed = 1;
       }
@@ -110,7 +112,7 @@ usertrap(void)
 }
 ```
 
-**父进程创建子进程时还需要用到**`fork()`函数，因此还要处理**kernel/proc.c**的`fork()`函数中父进程向子进程拷贝时的Lazy allocation 情况：
+**父进程创建子进程**时还需要用到`fork()`函数，因此还要处理**kernel/proc.c**的`fork()`函数中父进程向子进程拷贝时的`Lazy allocation` 情况：
 
 ```c
 int
@@ -154,12 +156,11 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&np->lock);
-
   return pid;
 }
 ```
 
-**可以看出**`fork()`是通过`uvmcopy()`将父进程页表向子进程拷贝的。对于`uvmcopy()`的处理和 `uvmunmap()`一致，只需要将PTE不存在和无效的两种情况由引发panic改为continue跳过即可，以下是对`uvmcopy()`函数的修改：
+**可以看出**`fork()`是通过`uvmcopy()`将父进程页表向子进程拷贝的。对于`uvmcopy()`的处理和 `uvmunmap()`一致，只需要将PTE不存在和无效的两种情况由引发`panic`改为`continue`跳过即可，以下是对`uvmcopy()`和`uvmunmap()`函数的修改：
 
 ```c
 if((pte = walk(old, i, 0)) == 0)
@@ -197,6 +198,48 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     }
     *pte = 0;
   }
+}
+```
+
+**3.程序调用 read 和 write 系统调用的时候，也会访问到未被分配的页表，此时不会进入usertrap， 所以这时需要分配内存。我们查看sys\_read和sys\_write的调用顺序可以发现：**`sys_read()->fileread()->readi()->either_copyout()->copyout()->walkaddr()`。从函数的调用顺序可以发现程序调用用户态下的 read 接口然后进入内核态调用对应的系统调用，整个过程中没有触发 `page fault` 而进入 `usertrap()`函数进行缺页中断处理，所以需要在最后的执行函数 `walkaddr()`对未映射虚拟地址进行处理。
+
+`uint64 walkaddr(pagetable_t pagetable, uint64 va)`函数的作用是将`pagetable` 上的 虚拟地址 `va` 转换成对应的物理地址。
+
+```c
+uint64
+walkaddr(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+  uint64 pa;
+  struct proc *p=myproc();  //获取进程控制块
+
+  if(va >= MAXVA)
+    return 0;
+
+  pte = walk(pagetable, va, 0);//找到对应的页表项
+  // lazy allocation，以下为增加内容
+  if(pte == 0 || (*pte & PTE_V) == 0) {//没有页表项或页表项无效
+    // va is on the user heap  
+    if(va >= PGROUNDUP(p->trapframe->sp) && va < p->sz){//虚拟地址在栈上页面最大值以下
+        char *pa;
+        if ((pa = kalloc()) == 0) {//开辟物理内存
+            return 0;
+        }
+        memset(pa, 0, PGSIZE);//初始化物理内存
+        if (mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE,
+                     (uint64) pa, PTE_W | PTE_R | PTE_U) != 0) {//映射物理内存到虚拟地址
+            kfree(pa);
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+  }
+  //以上为修改内容
+  if((*pte & PTE_U) == 0)
+    return 0;
+  pa = PTE2PA(*pte);
+  return pa;
 }
 ```
 
