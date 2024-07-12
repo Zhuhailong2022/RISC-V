@@ -12,7 +12,7 @@
 
 **1.将大的空闲内存链表分成CPU数量个小的链表，在 kernel/param.h文件中对量表结构进行修改：**
 
-```
+```c
 struct {
   struct spinlock lock;
   struct run *freelist;
@@ -21,7 +21,7 @@ struct {
 
 **2.修改**`kinit`，为所有锁初始化以“kmem”开头的名称，该函数只会被一个CPU调用，`freerange`调用`kfree`将所有空闲内存挂在该CPU的空闲列表上
 
-```
+```c
 void
 kinit()
 {
@@ -36,7 +36,7 @@ kinit()
 
 **3.kfree函数的作用是释放物理内存并将其放回空闲内存链表，这里需要修改**`kfree`。注意：使用`cpuid()`和它返回的结果时必须关中断。
 
-```
+```c
 void
 kfree(void *pa)
 {
@@ -60,7 +60,7 @@ kfree(void *pa)
 
 **4.kalloc 函数的作用是从空闲内存链表中取出内存，在本次任务中还需要实现在当前CPU没有空闲内存时从其他CPU空闲内存链表中偷取内存：**
 
-```
+```c
 void *
 kalloc(void)
 {
@@ -108,7 +108,7 @@ kalloc(void)
 
 **1.定义哈希桶结构，并在**`bcache`中删除全局缓冲区链表，改为使用素数个散列桶
 
-```
+```c
 #define NBUCKET 13
 #define HASH(id) (id % NBUCKET)
 
@@ -125,7 +125,7 @@ struct {
 
 2. **在**`binit`中，（1）初始化散列桶的锁，（2）将所有散列桶的`head->prev`、`head->next`都指向自身表示为空，（3）将所有的缓冲区挂载到`buckets[0]`桶上，代码如下
 
-```
+```c
 void
 binit(void) {
   struct buf* b;
@@ -155,7 +155,7 @@ binit(void) {
 
 3. **在**`buf.h`中增加新字段`timestamp`，这里来理解一下这个字段的用途：在原始方案中，每次`brelse`都将被释放的缓冲区挂载到链表头，表民这个缓冲区最近刚刚被使用过，在`bget`中分配时从链表尾向前查找，这样符合条件的第一个就是最久未使用的。而在提示中建议使用时间戳作为`LRU`判定的法则，这样我们就无需在`brelse`中进行头插法更改结点位置
 
-```
+```c
 struct buf {
   ...
   uint timestamp;  // 时间戳
@@ -164,7 +164,7 @@ struct buf {
 
 4. **更改**`brelse`，不再获取全局锁
 
-```
+```c
 void
 brelse(struct buf* b) {
   if(!holdingsleep(&b->lock))
@@ -189,7 +189,7 @@ brelse(struct buf* b) {
 
 5. **更改**`bget`，当没有找到指定的缓冲区时进行分配，分配方式是优先从当前列表遍历，找到一个没有引用且`timestamp`最小的缓冲区，如果没有就申请下一个桶的锁，并遍历该桶，找到后将该缓冲区从原来的桶移动到当前桶中，最多将所有桶都遍历完。在代码中要注意锁的释放
 
-```
+```c
 static struct buf*
 bget(uint dev, uint blockno) {
   struct buf* b;
@@ -272,7 +272,7 @@ bget(uint dev, uint blockno) {
 
 6. **最后将末尾的两个小函数也改一下**
 
-```
+```c
 void
 bpin(struct buf* b) {
   int bid = HASH(b->blockno);
@@ -292,4 +292,4 @@ bunpin(struct buf* b) {
 
 ### 实现结果
 
-![1720793972651](images/README/1720793972651.png)
+![1720794473398](images/README/1720794473398.png)
