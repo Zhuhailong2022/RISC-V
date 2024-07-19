@@ -100,7 +100,7 @@ struct proc {
   pagetable_t pagetable;       // User page table
   struct trapframe *trapframe; // data page for trampoline.S
   struct context context;      // swtch() here to run process
-  struct file *ofile[NOFILE];  // Open files
+  struct file *ofile[NOFILE];  // Open files，进程打开的文件描述符表指向文件系统内的一个个文件结构体，文件结构体在文件系统内是以数组的形式存在ftable.file[]
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };

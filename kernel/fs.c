@@ -571,26 +571,27 @@ namecmp(const char *s, const char *t)
 
 // Look for a directory entry in a directory.
 // If found, set *poff to byte offset of entry.
+//在目录中查找目录条目。如果找到，则将 *poff 设置为条目的字节偏移量。
 struct inode*
 dirlookup(struct inode *dp, char *name, uint *poff)
 {
   uint off, inum;
   struct dirent de;
 
-  if(dp->type != T_DIR)
+  if(dp->type != T_DIR) //这个inode必须是目录
     panic("dirlookup not DIR");
 
-  for(off = 0; off < dp->size; off += sizeof(de)){
-    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+  for(off = 0; off < dp->size; off += sizeof(de)){//逐个遍历目录项
+    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))//读入当前目录项，readi
       panic("dirlookup read");
     if(de.inum == 0)
       continue;
-    if(namecmp(name, de.name) == 0){
+    if(namecmp(name, de.name) == 0){//比较名字
       // entry matches path element
       if(poff)
         *poff = off;
       inum = de.inum;
-      return iget(dp->dev, inum);
+      return iget(dp->dev, inum);//通过inode号找到对应的inode
     }
   }
 
@@ -598,6 +599,7 @@ dirlookup(struct inode *dp, char *name, uint *poff)
 }
 
 // Write a new directory entry (name, inum) into the directory dp.
+//将新的目录条目（name、inum）写入目录 dp。
 int
 dirlink(struct inode *dp, char *name, uint inum)
 {

@@ -58,7 +58,7 @@ struct dinode {
 #define DIRSIZ 14
 
 struct dirent {
-  ushort inum;
-  char name[DIRSIZ];
+  ushort inum;//指向inode的i-number
+  char name[DIRSIZ];//文件名
 };
 

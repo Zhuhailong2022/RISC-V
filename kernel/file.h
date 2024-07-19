@@ -1,10 +1,10 @@
 struct file {
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-  int ref; // reference count
+  int ref; // reference count，每个进程打开的文件描述符表指向文件描述，一个进程指向ref+1，关闭文件描述符表时-1
   char readable;
   char writable;
   struct pipe *pipe; // FD_PIPE
-  struct inode *ip;  // FD_INODE and FD_DEVICE
+  struct inode *ip;  // FD_INODE and FD_DEVICE,文件描述符对应到 inode 节点
   uint off;          // FD_INODE
   short major;       // FD_DEVICE
 };
@@ -26,7 +26,7 @@ struct inode {
   short minor;
   short nlink;
   uint size;
-  uint addrs[NDIRECT+2];
+  uint addrs[NDIRECT+2];//指向的直接块间接块的指针
 };
 
 // map major device number to device functions.
