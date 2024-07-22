@@ -374,6 +374,7 @@ iunlockput(struct inode *ip)
 
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
+//该函数根据给定的inode和块号bn来查找或分配一个磁盘块的地址。
 static uint
 bmap(struct inode *ip, uint bn)
 {
@@ -503,21 +504,34 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
   uint tot, m;
   struct buf *bp;
 
+  // 检查偏移量是否超出文件大小，或者偏移量加上读取长度后小于偏移量（即溢出）
   if(off > ip->size || off + n < off)
     return 0;
+  // 如果偏移量加上读取长度大于文件大小，则只读取到文件末尾
   if(off + n > ip->size)
     n = ip->size - off;
 
+  // 循环读取文件内容
   for(tot=0; tot<n; tot+=m, off+=m, dst+=m){
+    // 读取文件的一个磁盘块
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
+    // 计算当前磁盘块中要读取的字节数
     m = min(n - tot, BSIZE - off%BSIZE);
+
+    // 将磁盘块中的数据复制到用户空间
+    // 如果复制失败，则释放缓冲区并退出循环
     if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
+      // 释放缓冲区
       brelse(bp);
+      // 设置tot为-1，表示读取失败
       tot = -1;
+      // 退出循环
       break;
     }
+    // 释放缓冲区
     brelse(bp);
   }
+  // 返回读取的字节数
   return tot;
 }
 
@@ -534,30 +548,42 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
   uint tot, m;
   struct buf *bp;
 
+  // 如果偏移量大于文件大小，或者偏移量加长度小于偏移量（即长度小于0）
   if(off > ip->size || off + n < off)
     return -1;
+  // 如果偏移量加长度大于文件系统的最大文件大小
   if(off + n > MAXFILE*BSIZE)
     return -1;
 
   for(tot=0; tot<n; tot+=m, off+=m, src+=m){
+    // 读取指定偏移量对应的磁盘块到缓冲区bp
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
+    // 计算当前循环中需要写入的字节数
     m = min(n - tot, BSIZE - off%BSIZE);
+    // 从用户空间或内存空间复制数据到缓冲区bp中
     if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
+      // 如果复制失败，则释放缓冲区bp
       brelse(bp);
       break;
     }
+    // 将缓冲区bp写入到磁盘上的日志中
     log_write(bp);
+    // 释放缓冲区bp
     brelse(bp);
   }
 
+  // 如果偏移量大于文件大小，则更新文件大小
   if(off > ip->size)
     ip->size = off;
 
+  // 无论文件大小是否改变，都将i-node写回磁盘
+  // 因为上面的循环可能会调用bmap()函数，并向ip->addrs[]中添加新的磁盘块
   // write the i-node back to disk even if the size didn't change
   // because the loop above might have called bmap() and added a new
   // block to ip->addrs[].
   iupdate(ip);
 
+  // 返回实际写入的字节数
   return tot;
 }
 
@@ -607,22 +633,27 @@ dirlink(struct inode *dp, char *name, uint inum)
   struct dirent de;
   struct inode *ip;
 
+  // 检查文件名是否已存在
   // Check that name is not present.
   if((ip = dirlookup(dp, name, 0)) != 0){
     iput(ip);
     return -1;
   }
 
+  // 查找空的dirent
   // Look for an empty dirent.
   for(off = 0; off < dp->size; off += sizeof(de)){
     if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
       panic("dirlink read");
+    // 如果找到空的dirent，则跳出循环
     if(de.inum == 0)
       break;
   }
 
+  // 将文件名和inode号写入dirent
   strncpy(de.name, name, DIRSIZ);
   de.inum = inum;
+  // 将dirent写入磁盘
   if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
     panic("dirlink");
 

@@ -243,12 +243,12 @@ create(char *path, short type, short major, short minor)
 {
   struct inode *ip, *dp;
   char name[DIRSIZ];
-
+  //查找父目录和文件名，将结果存放再name数组中
   if((dp = nameiparent(path, name)) == 0)
     return 0;
 
   ilock(dp);
-
+  //然后使用 dirlookup 函数在父目录中查找与给定名称匹配的文件。如果找到，则进行一些检查并可能返回现有的inode
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
@@ -257,7 +257,7 @@ create(char *path, short type, short major, short minor)
     iunlockput(ip);
     return 0;
   }
-
+  //如果文件不存在，则调用 ialloc 函数在相同的设备上为新文件分配一个inode。如果无法分配，则触发一个 panic。
   if((ip = ialloc(dp->dev, type)) == 0)
     panic("create: ialloc");
 
