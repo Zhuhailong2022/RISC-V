@@ -103,11 +103,10 @@ bget(uint dev, uint blockno) {
   // 从当前散列桶开始查找
   for(int i = bid, cycle = 0; cycle != NBUCKET; i = (i + 1) % NBUCKET) {
     ++cycle;
-    // 如果遍历到当前散列桶，则不重新获取锁
     if(i != bid) {
       if(!holding(&bcache.buckets[i].lock))
         acquire(&bcache.buckets[i].lock);
-      else
+      else    // 如果遍历到当前散列桶，则不重新获取锁
         continue;
     }
 
