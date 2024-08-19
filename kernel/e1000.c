@@ -101,8 +101,36 @@ e1000_transmit(struct mbuf *m)
   // the mbuf contains an ethernet frame; program it into
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after sending.
-  //
-  
+  acquire(&e1000_lock); // 防止多进程发送引发的竞争
+
+  // 读取regs[E1000_TDT]去查询下一次发送的 ring index
+  int tx_ring_index = regs[E1000_TDT];
+
+  // 根据下一次发送的ring index找到对应的状态，如果没有设置E1000_TXD_STAT_DD,说明上一次发送请求未完成，返回err
+  if(!(tx_ring[tx_ring_index].status & E1000_TXD_STAT_DD))
+  {
+    release(&e1000_lock);
+    return -1;
+  }  
+
+  // 如果上一个mbuf不空，进行释放
+  if(tx_mbufs[tx_ring_index]) {
+    mbuffree(tx_mbufs[tx_ring_index]);
+    tx_mbufs[tx_ring_index] = 0;
+  }
+
+  tx_ring[tx_ring_index].addr = (uint64)m->head; 
+  tx_ring[tx_ring_index].length = m->len;
+  tx_ring[tx_ring_index].cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS; // 配置cmd，EOP表示该buffer中含有一个完整的包，RS会告诉网卡在发送完成后，设置E1000_TXD_STAT_DD位
+
+  // 放入mbufs中用于后续释放
+  tx_mbufs[tx_ring_index] = m;
+
+  // 递增regs[E1000_TDT]
+  regs[E1000_TDT] = (regs[E1000_TDT] + 1) % TX_RING_SIZE;
+
+  release(&e1000_lock);
+
   return 0;
 }
 
@@ -115,7 +143,30 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
+
+  // 这个函数是在中断处理函数中被调用
+  while(1) //每次recv可能接受多个包
+  {
+    int rx_ring_index = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+
+    if(!(rx_ring[rx_ring_index].status & E1000_RXD_STAT_DD)){ //接受完毕退出
+      return;
+    }
+
+    rx_mbufs[rx_ring_index]->len = rx_ring[rx_ring_index].length;
+
+    net_rx(rx_mbufs[rx_ring_index]); //传递给上层网络协议栈，上层对mbuf进行释放
+
+    // 重新分配mbuf
+    struct mbuf * new_mbuf = mbufalloc(0); 
+    rx_mbufs[rx_ring_index] = new_mbuf;
+    rx_ring[rx_ring_index].addr = (uint64)(new_mbuf->head);
+    rx_ring[rx_ring_index].status = 0;
+
+    regs[E1000_RDT] = rx_ring_index; // 递增regs[E1000_RDT]
+  }
 }
+
 
 void
 e1000_intr(void)
