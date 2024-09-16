@@ -128,6 +128,7 @@ found:
     return 0;
   }
 
+  //分配内核栈
   char *pa = kalloc();
   if(pa == 0)
     panic("kalloc");
