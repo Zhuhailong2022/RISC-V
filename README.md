@@ -60,7 +60,8 @@ struct pagerefcnt {
 void incref(uint64 va) {
   acquire(&ref.lock);//先获取锁
   if(va < 0 || va > PHYSTOP) panic("wrong virtual address");
-  ref.refcount[va / PGSIZE]++;//增加引用计数
+  uint64 pa = walkaddr(va)//转换成物理地址
+  ref.refcount[pa/ PGSIZE]++;//增加物理内存块的引用计数
   release(&ref.lock);//释放锁
 }
 ```
