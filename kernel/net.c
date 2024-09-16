@@ -15,8 +15,9 @@ static uint32 local_ip = MAKE_IP_ADDR(10, 0, 2, 15); // qemu's idea of the guest
 static uint8 local_mac[ETHADDR_LEN] = { 0x52, 0x54, 0x00, 0x12, 0x34, 0x56 };
 static uint8 broadcast_mac[ETHADDR_LEN] = { 0xFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF };
 
-// Strips data from the start of the buffer and returns a pointer to it.
-// Returns 0 if less than the full requested length is available.
+
+//该函数从mbuf类型的指针m（缓冲区）中提取长度为len的数据，并返回指向该数据的指针。
+//当m指向的数据长度小于len时，返回0。反之则则返回指向该数据的指针。
 char *
 mbufpull(struct mbuf *m, unsigned int len)
 {
@@ -27,8 +28,8 @@ mbufpull(struct mbuf *m, unsigned int len)
   m->head += len;
   return tmp;
 }
-
-// Prepends data to the beginning of the buffer and returns a pointer to it.
+// Appends data to the beginning of the buffer and returns a pointer to it.
+//向buf缓冲区的开始处添加数据，并返回指向该数据的指针。如果m指向的数据长度小于len，则panic。
 char *
 mbufpush(struct mbuf *m, unsigned int len)
 {
@@ -40,18 +41,20 @@ mbufpush(struct mbuf *m, unsigned int len)
 }
 
 // Appends data to the end of the buffer and returns a pointer to it.
+//向缓冲区的末尾添加数据，并返回指向该数据的指针。如果m指向的数据长度大于MBUF_SIZE，则panic。
 char *
 mbufput(struct mbuf *m, unsigned int len)
 {
-  char *tmp = m->head + m->len;
-  m->len += len;
+  char *tmp = m->head + m->len;//tmp指向缓冲区的末尾
+  m->len += len;//增加长度
   if (m->len > MBUF_SIZE)
     panic("mbufput");
-  return tmp;
+  return tmp;//返回新的数据的指针
 }
 
 // Strips data from the end of the buffer and returns a pointer to it.
 // Returns 0 if less than the full requested length is available.
+//从 mbuf 结构体的缓冲区末尾移除数据，并返回指向被移除数据位置的指针。如果请求移除的数据长度大于缓冲区中现有数据的长度，函数将返回 0
 char *
 mbuftrim(struct mbuf *m, unsigned int len)
 {

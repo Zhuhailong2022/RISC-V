@@ -17,7 +17,7 @@ static struct rx_desc rx_ring[RX_RING_SIZE] __attribute__((aligned(16)));
 static struct mbuf *rx_mbufs[RX_RING_SIZE];
 
 // remember where the e1000's registers live.
-static volatile uint32 *regs;
+static volatile uint32 *regs;//这里声明的regs指向可以是一个数也可以是一个数组
 
 struct spinlock e1000_lock;
 
@@ -92,6 +92,7 @@ e1000_init(uint32 *xregs)
   regs[E1000_IMS] = (1 << 7); // RXDW -- Receiver Descriptor Write Back
 }
 
+//函数的作用是将传入的mbuf编程到特定的网卡的发送描述符环中，以便网卡能够发送该数据包
 int
 e1000_transmit(struct mbuf *m)
 {
@@ -103,7 +104,7 @@ e1000_transmit(struct mbuf *m)
   // a pointer so that it can be freed after sending.
   acquire(&e1000_lock); // 防止多进程发送引发的竞争
 
-  // 读取regs[E1000_TDT]去查询下一次发送的 ring index
+  // 读取regs[E1000_TDT]去查询下一次发送的 tx_ring_index
   int tx_ring_index = regs[E1000_TDT];
 
   // 根据下一次发送的ring index找到对应的状态，如果没有设置E1000_TXD_STAT_DD,说明上一次发送请求未完成，返回err
@@ -113,12 +114,13 @@ e1000_transmit(struct mbuf *m)
     return -1;
   }  
 
-  // 如果上一个mbuf不空，进行释放
+  //上一次发送请求完成，如果tx_ring_index指向的mbuf不空，进行释放
   if(tx_mbufs[tx_ring_index]) {
     mbuffree(tx_mbufs[tx_ring_index]);
     tx_mbufs[tx_ring_index] = 0;
   }
 
+  //设置tx_ring中对应位置的buffer信息
   tx_ring[tx_ring_index].addr = (uint64)m->head; 
   tx_ring[tx_ring_index].length = m->len;
   tx_ring[tx_ring_index].cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS; // 配置cmd，EOP表示该buffer中含有一个完整的包，RS会告诉网卡在发送完成后，设置E1000_TXD_STAT_DD位
