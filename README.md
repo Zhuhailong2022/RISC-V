@@ -106,7 +106,7 @@ sys_mmap(void)
       p->vma[i].offset = offset;
       filedup(file);
       p->sz += length;
-      return p->vma[i].addr;
+      return p->vma[i].addr;//返回映射地址
     }
   }
   return -1;
@@ -123,11 +123,11 @@ usertrap(void)
   else if((which_dev = devintr()) != 0){
     // ok
   } else if(r_scause() == 13 || r_scause() == 15) {
-    uint64 va = r_stval();
+    uint64 va = r_stval();//产生缺页中断的地址
     if(va >= p->sz || va > MAXVA || PGROUNDUP(va) == PGROUNDDOWN(p->trapframe->sp)) p->killed = 1;
     else {
       struct vma *vma = 0;
-      for (int i = 0; i < VMASIZE; i++) {
+      for (int i = 0; i < VMASIZE; i++) {//发生缺页中断的va若存在与vma数组说明是映射的文件
         if (p->vma[i].used == 1 && va >= p->vma[i].addr && va < p->vma[i].addr + p->vma[i].length) {
           vma = &p->vma[i];
           break;
