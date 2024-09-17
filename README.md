@@ -69,62 +69,68 @@ struct inode {
 
 **2.仿照一级索引，写一下二级索引，在 kernel/fs.c 中添加代码：**
 
+bmap函数的功能是返回指定inode中第bn个数据块的块号，如果不存在这个块就开辟一个再返回。
+
 ```c
 static uint
 bmap(struct inode *ip, uint bn)
 {
-  uint addr, *a;
-  struct buf *bp;
+ uint addr, *a;
+ struct buf *bp;
+//bn不超过直接块的返回
+ if(bn < NDIRECT){
+   if((addr = ip->addrs[bn]) == 0)
+     ip->addrs[bn] = addr = balloc(ip->dev);
+   return addr;
+}
 
-  if(bn < NDIRECT){
-    if((addr = ip->addrs[bn]) == 0)
-      ip->addrs[bn] = addr = balloc(ip->dev);
-    return addr;
-  }
-  bn -= NDIRECT;
+//达到一级间接块范围
+ bn -= NDIRECT;
 
-  if(bn < NINDIRECT){
-    // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
-    if((addr = a[bn]) == 0){
-      a[bn] = addr = balloc(ip->dev);
-      log_write(bp);
-    }
-    brelse(bp);
-    return addr;
-  }
-  // 二级索引
-  bn -= NINDIRECT;
-  if(bn < NDINDIRECT) {
-    if((addr = ip->addrs[NDIRECT+1]) == 0)
-      ip->addrs[NDIRECT+1] = addr = balloc(ip->dev);
-    // 通过一级索引，找到下一级索引
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
-    if((addr = a[bn/NINDIRECT]) == 0) {
-      a[bn/NINDIRECT] = addr = balloc(ip->dev);
-      log_write(bp);
-    }
-    brelse(bp);
-    // 重复上面的代码，实现二级索引
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
-    if ((addr = a[bn%NINDIRECT]) == 0) {
-      a[bn%NINDIRECT] = addr = balloc(ip->dev);
-      log_write(bp);
-    }
-    brelse(bp);
-    return addr;
-  }
+ if(bn < NINDIRECT){
+   // Load indirect block, allocating if necessary.
+   if((addr = ip->addrs[NDIRECT]) == 0)
+     ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+   bp = bread(ip->dev, addr);
+   a = (uint*)bp->data;
+   if((addr = a[bn]) == 0){
+     a[bn] = addr = balloc(ip->dev);
+     log_write(bp);
+   }
+   brelse(bp);
+   return addr;
+}
+ // 超过一级间接块范围达到二级索引范围
+ bn -= NINDIRECT;
+ if(bn < NDINDIRECT) {
+   if((addr = ip->addrs[NDIRECT+1]) == 0)//一级索引不存在则分配
+     ip->addrs[NDIRECT+1] = addr = balloc(ip->dev);
+   // 通过一级索引，找到下一级索引
+   bp = bread(ip->dev, addr);
+   a = (uint*)bp->data;
+   if((addr = a[bn/NINDIRECT]) == 0) {
+     a[bn/NINDIRECT] = addr = balloc(ip->dev);
+     log_write(bp);
+   }
+   brelse(bp);
+   // 重复上面的代码，实现二级索引
+   bp = bread(ip->dev, addr);
+   a = (uint*)bp->data;
+   if ((addr = a[bn%NINDIRECT]) == 0) {//二级索引不存在则分配
+     a[bn%NINDIRECT] = addr = balloc(ip->dev);
+     log_write(bp);
+   }
+   brelse(bp);
+   return addr;
+}
 
-  panic("bmap: out of range");
+ panic("bmap: out of range");
 }
 ```
 
 **3.在 kernel/fs.c 中，添加第二级索引的释放操作：**
+
+将inode所指向的数据块（包括直接和间接索引块）全部释放，等于删除文件。
 
 ```c
 void
@@ -165,7 +171,7 @@ itrunc(struct inode *ip)
 
 * **可以用不同的文件名访问同样的内容；**
 * **对文件内容进行修改，会影响到所有文件名；**
-* **删除一个文件名****，**不影响另一个文件名的访问。
+* **删除一个文件名**，不影响另一个文件名的访问。
 
 **而软链接也是一个文件，但是**文件内容指向另一个文件的 inode。打开这个文件时，会自动打开它指向的文件，类似于 windows 系统的快捷方式。
 
@@ -184,26 +190,26 @@ itrunc(struct inode *ip)
 ```
 
 3. **在**`kernel/sysfile.c`中实现`sys_symlink`，这里需要注意的是`create`返回已加锁的inode，此外`iunlockput`既对`inode`解锁，还将其引用计数减1，计数为0时回收此`inode`。
-   **先从寄存器中读取参数，然后开启事务，避免提交出错；为这个符号链接新建一个 inode；在符号链接的 data 中写入被链接的文件；最后，提交事务：**
+   **先从寄存器中读取参数，然后开启事务，避免提交出错；为这个符号链接新建一个 inode；在符号链接的 data 中写入被链接的文件；最后，提交事务；**
 
 ```c
 uint64
 sys_symlink(void) {
-  char target[MAXPATH], path[MAXPATH];
+  char target[MAXPATH], path[MAXPATH];//目标和路径（软链接）
   struct inode* ip_path;
-
+  //从寄存器中取出用户态传入参数目标和被创建的软链接名
   if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0) {
     return -1;
   }
 
   begin_op();
-  // 分配一个inode结点，create返回锁定的inode
+  // 分配一个inode结点并设置类型为软链接，create返回锁定的inode
   ip_path = create(path, T_SYMLINK, 0, 0);
   if(ip_path == 0) {
     end_op();
     return -1;
   }
-  // 向inode数据块中写入target路径
+  // 向ip_path写入target路径
   if(writei(ip_path, 0, (uint64)target, 0, MAXPATH) < MAXPATH) {
     iunlockput(ip_path);
     end_op();
@@ -243,7 +249,7 @@ sys_open(void)
         return -1;
       }
       iunlockput(ip);
-      ip = namei(path);
+      ip = namei(path);//输入路径名返回路径对应的inode
       if(ip == 0) {
         end_op();
         return -1;
@@ -270,4 +276,4 @@ sys_open(void)
 
 ### 实现结果
 
-![1720852466497](images/README/1720852466497.png)![image-20240713142610489](file:///C:/Users/Admin/AppData/Roaming/Typora/typora-user-images/image-20240713142610489.png?lastModify=1720845916)
+![1720852466497](images/README/1720852466497.png)
