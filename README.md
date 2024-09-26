@@ -27,7 +27,7 @@
 
 ## 实现思路
 
-任务要是现的两个函数 e1000_transmit 的作用是，将应用层经过协议栈产生的数据帧`struct mbuf *m`放入 Ring Buffer中。而另一个函数 e1000_recv 的作用是在操作系统中断被触发时，操作系统从 Ring Buffer 环中取出数据帧的。
+任务要是现的两个函数 e1000_transmit 的作用是，将应用层经过协议栈产生的数据帧`struct mbuf *m`放入 Ring Buffer中。而另一个函数 e1000_recv 的作用是在操作系统中断被触发时，操作系统从 Ring Buffer 环中取出数据帧。
 
 ### e1000_transmite的实现
 
